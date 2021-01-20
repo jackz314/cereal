@@ -73,8 +73,8 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     preLaneChangeLeft @57;
     preLaneChangeRight @58;
     laneChange @59;
-    laneChangeLeft @94;
-    laneChangeRight @95;
+    laneChangeLeft @95;
+    laneChangeRight @96;
     communityFeatureDisallowed @62;
     lowMemory @63;
     stockAeb @64;
