@@ -8,30 +8,26 @@ messaging_dir = Dir('messaging')
 
 # Build cereal
 
+schema_files = ['log.capnp', 'car.capnp', 'legacy.capnp']
 env.Command(["gen/c/include/c++.capnp.h", "gen/c/include/java.capnp.h"], [], "mkdir -p " + gen_dir.path + "/c/include && touch $TARGETS")
-env.Command(['gen/cpp/car.capnp.c++', 'gen/cpp/log.capnp.c++', 'gen/cpp/car.capnp.h', 'gen/cpp/log.capnp.h'],
-            ['car.capnp', 'log.capnp'],
+env.Command([f'gen/cpp/{s}.c++' for s in schema_files] + [f'gen/cpp/{s}.h' for s in schema_files],
+            schema_files,
             f"capnpc --src-prefix={cereal_dir.path} $SOURCES -o c++:{gen_dir.path}/cpp/")
 
 if shutil.which('capnpc-java'):
   env.Command(['gen/java/Car.java', 'gen/java/Log.java'],
-              ['car.capnp', 'log.capnp'],
+              schema_files,
               f"capnpc $SOURCES --src-prefix={cereal_dir.path} -o java:{gen_dir.path}/java/")
 
 # TODO: remove non shared cereal and messaging
-cereal_objects = env.SharedObject([
-  'gen/cpp/car.capnp.c++',
-  'gen/cpp/log.capnp.c++',
-])
+cereal_objects = env.SharedObject([f'gen/cpp/{s}.c++' for s in schema_files])
 
 env.Library('cereal', cereal_objects)
 env.SharedLibrary('cereal_shared', cereal_objects)
 
 # Build messaging
 
-services_h = env.Command(['services.h'],
-                          ['service_list.yaml', 'services.py'],
-                          'python3 ' + cereal_dir.path + '/services.py > $TARGET')
+services_h = env.Command(['services.h'], ['services.py'], 'python3 ' + cereal_dir.path + '/services.py > $TARGET')
 
 messaging_objects = env.SharedObject([
   'messaging/messaging.cc',
@@ -72,6 +68,14 @@ else:
 
 vipc_objects = env.SharedObject(vipc_sources)
 vipc = env.Library('visionipc', vipc_objects)
+
+
+libs = envCython["LIBS"]+["OpenCL", "zmq", vipc, messaging_lib]
+if arch == "Darwin":
+  del libs[libs.index('OpenCL')]
+  envCython['FRAMEWORKS'] += ['OpenCL']
+envCython.Program('visionipc/visionipc_pyx.so', 'visionipc/visionipc_pyx.pyx', LIBS=libs)
+
 
 if GetOption('test'):
   env.Program('messaging/test_runner', ['messaging/test_runner.cc', 'messaging/msgq_tests.cc'], LIBS=[messaging_lib])
